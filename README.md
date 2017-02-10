@@ -1,6 +1,6 @@
-# scrabble
+# scrabulous
 
-FIXME: description
+Scrabble in Clojure
 
 ## Installation
 
