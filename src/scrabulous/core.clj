@@ -21,6 +21,8 @@
   (let [letter (if (char? letter) letter (.charAt letter 0))]
     (first (first (filter (fn [[score letters]] (letters letter)) letter-values)))))
 
+(defn word-score [word] (reduce + (map letter-score word)))
+
 (defn column-index [column] (.indexOf columns (string/upper-case column)))
 
 (defn column-name [column-index] (columns column-index))
