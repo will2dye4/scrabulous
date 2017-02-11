@@ -1,6 +1,6 @@
-(ns scrabble.core-test
+(ns scrabulous.core-test
   (:require [clojure.test :refer :all]
-            [scrabble.core :refer :all]))
+            [scrabulous.core :refer :all]))
 
 (deftest a-test
   (testing "FIXME, I fail."
