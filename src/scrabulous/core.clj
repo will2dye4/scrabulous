@@ -32,55 +32,82 @@
       (keep #(re-matches #"[a-z]+" %))
       set)))
 
-(defn create-board
-  ([] (create-board dim))
-  ([dim] (vec (repeat (* dim dim) nil))))
+(defn valid-word?
+  "Returns true IFF word is in the dictionary"
+  [word] (boolean (valid-words (string/lower-case word))))
 
-(def board (atom (create-board)))
-
-(defn get-dim [board] (int (Math/sqrt (count board))))
+(defn get-dim
+  "Returns the dimension (side length) of board"
+  [board] (int (Math/sqrt (count board))))
 
 (defn get-columns
+  "Returns a vector of the column names on a board of size dim, starting at A"
   ([] (get-columns dim))
   ([dim] (vec (map (comp str char) (range (int \A) (+ (int \A) dim))))))
 
 (def columns (get-columns))
 
-(defn column-index [column] (.indexOf columns (string/upper-case column)))
+(defn column-index
+  "Returns the zero-based index of the column name"
+  [column] (.indexOf columns (string/upper-case column)))
 
-(defn column-number [column] (if (number? column) column (inc (column-index column))))
+(defn column-number
+  "Returns the one-based index of the column"
+  [column] (if (number? column) column (inc (column-index column))))
 
-(defn column-name [column-index] (columns column-index))
+(defn as-coords
+  "Returns the one-based numeric coordinates for column and row"
+  [[column row]] [(column-number column) row])
 
-(defn next-column [column] (column-name (inc (column-index column))))
+(defn column-name
+  "Returns the name of the zero-based column-index"
+  [column-index] (columns column-index))
+
+(defn next-column
+  "Returns the name of the next column after column"
+  [column] (column-name (inc (column-index column))))
 
 (defn next-space
+  "Returns the next space in the specified direction,
+  or nil if the space is on the edge"
   ([coordinates direction] (next-space coordinates direction dim))
-  ([[column row] direction dim]
-    (if (= direction :across)
-      (if (= column dim)
-        nil
-        [(inc column) row])
-      (if (= row dim)
-        nil
-        [column (inc row)]))))
+  ([coordinates direction dim]
+    (let [[column row] (as-coords coordinates)]
+      (if (= direction :across)
+        (if (= column dim)
+          nil
+          [(inc column) row])
+        (if (= row dim)
+          nil
+          [column (inc row)])))))
 
-(defn previous-space [[column row] direction]
-  (if (= direction :across)
-    (if (= column 1)
-      nil
-      [(dec column) row])
-    (if (= row 1)
-      nil
-      [column (dec row)])))
+(defn previous-space
+  "Returns the previous space in the specified direction,
+  or nil if the space is on the edge"
+  ([coordinates direction]
+    (let [[column row] (as-coords coordinates)]
+      (if (= direction :across)
+        (if (= column 1)
+          nil
+          [(dec column) row])
+        (if (= row 1)
+          nil
+          [column (dec row)])))))
 
 (defn get-index
+  "Returns the zero-based index of the square on a board of size dim"
   ([coordinates] (get-index coordinates dim))
   ([[column row] dim]
     (let [column (if (number? column) (dec column) (column-index column))]
       (+ (* dim (dec row)) column))))
 
+(defn create-board
+  "Creates an empty board with side length dim"
+  ([] (create-board dim))
+  ([dim] (vec (repeat (* dim dim) nil))))
+
 (defn create-tile-bag
+  "Creates a tile bag with the specified letter frequencies"
   ([] (create-tile-bag letter-frequencies))
   ([letter-frequencies]
     (-> (for [[n letters] letter-frequencies letter letters] (repeat n letter))
@@ -88,92 +115,118 @@
       shuffle
       vec)))
 
-(def tile-bag (atom (create-tile-bag)))
-
 (defn draw-tiles
-  ([n] (draw-tiles tile-bag n))
-  ([bag n]
-    (let [tiles (take n @bag)]
-      (swap! bag #(vec (drop n %)))
-      (vec tiles))))
+  "Draws n tiles from the tile bag, returning a tuple
+  containing the tiles drawn and the bag with the tiles removed"
+  [tile-bag n] [(vec (take n tile-bag)) (vec (drop n tile-bag))])
 
 (defn tile-rack
-  ([] (tile-rack tile-bag))
-  ([bag] (draw-tiles bag tiles-per-player)))
+  "Draws the default number of tiles from the tile bag,
+  returning the same as draw-tiles"
+  [tile-bag] (draw-tiles tile-bag tiles-per-player))
 
-(defn check-spaces [board coordinates direction word]
-  (if (empty? word)
-    true
-    (let [letter (string/upper-case (first word))
-          dim (get-dim board)
-          board-letter (board (get-index coordinates dim))]
-      (if (or (nil? board-letter) (= letter board-letter))
-        (recur board (next-space coordinates direction dim) direction (rest word))
-        false))))
+(defn create-game
+  "Creates a new game with the specified number of players,
+  board size, and letter frequencies"
+  ([num-players] (create-game num-players dim))
+  ([num-players dim] (create-game num-players dim letter-frequencies))
+  ([num-players dim letter-frequencies]
+    (let [tile-bag (create-tile-bag letter-frequencies)
+          reduce-fn (fn [[bag racks] _] (let [[r b] (tile-rack bag)] [b (conj racks r)]))
+          [tile-bag tile-racks] (reduce reduce-fn [tile-bag []] (range num-players))
+          players (into {} (map-indexed (fn [n rack] [(inc n) {:tile-rack rack :score 0}]) tile-racks))]
+      {:board (create-board dim)
+       :tile-bag tile-bag
+       :players players
+       :active 1})))
 
-(defn word-start [board coordinates direction]
-  (if-let [prev-coordinates (previous-space coordinates direction)]
-    (if (nil? (board (get-index prev-coordinates (get-dim board))))
-      coordinates
-      (recur board prev-coordinates direction))
-    coordinates))
+(def game (atom (create-game 2)))
 
-(defn word-end [board coordinates direction]
-  (let [dim (get-dim board)]
-    (if-let [next-coordinates (next-space coordinates direction dim)]
-      (if (nil? (board (get-index next-coordinates dim)))
+(defn check-spaces
+  "Returns true IFF word fits into the spaces starting at coordinates and
+  moving in direction. The space may be empty or have the same letter as word."
+  ([board coordinates direction word]
+    (if (empty? word)
+      true
+      (let [letter (string/upper-case (first word))
+            dim (get-dim board)
+            board-letter (board (get-index coordinates dim))]
+        (if (or (nil? board-letter) (= letter board-letter))
+          (recur board (next-space coordinates direction dim) direction (rest word))
+          false)))))
+
+(defn word-start
+  "Returns the position of the start of the word
+  that passes through coordinates in direction"
+  ([board coordinates direction]
+    (if-let [prev-coordinates (previous-space coordinates direction)]
+      (if (nil? (board (get-index prev-coordinates (get-dim board))))
         coordinates
-        (recur board next-coordinates direction))
+        (recur board prev-coordinates direction))
       coordinates)))
 
-(defn get-word [board coordinates direction]
-  (let [start (word-start board coordinates direction)
-        end (word-end board coordinates direction)
-        dim (get-dim board)]
-    (loop [coords start word ""]
-      (let [letter (board (get-index coords dim)) word (str word letter)]
-        (if (= coords end)
-          word
-          (recur (next-space coords direction dim) word))))))
+(defn word-end
+  "Returns the position of the end of the word
+  that passes through coordinates in direction"
+  ([board coordinates direction]
+    (let [dim (get-dim board)]
+      (if-let [next-coordinates (next-space coordinates direction dim)]
+        (if (nil? (board (get-index next-coordinates dim)))
+          coordinates
+          (recur board next-coordinates direction))
+        coordinates))))
 
-(defn get-minor-words [board [column row :as coordinates] direction]
-  (let [start (word-start board coordinates direction)
-        end (word-end board coordinates direction)
-        dim (get-dim board)
-        opposite-direction (if (= direction :across) :down :across)]
-    (loop [coords start minor-words []]
-      (let [minor-word (get-word board coords opposite-direction)
-            minor-words (if (#{0 1} (count minor-word)) minor-words (conj minor-words minor-word))]
-        (if (= coords end)
-          minor-words
-          (recur (next-space coords direction dim) minor-words))))))
+(defn get-word
+  "Returns the word that passes through coordinates in direction"
+  ([board coordinates direction]
+    (let [start (word-start board coordinates direction)
+          end (word-end board coordinates direction)
+          dim (get-dim board)]
+      (loop [coords start word ""]
+        (let [letter (board (get-index coords dim)) word (str word letter)]
+          (if (= coords end)
+            word
+            (recur (next-space coords direction dim) word)))))))
+
+(defn get-cross-words
+  "Returns a vector of all words crossing the word
+  that passes through coordinates in direction"
+  ([board coordinates direction]
+    (let [start (word-start board coordinates direction)
+          end (word-end board coordinates direction)
+          dim (get-dim board)
+          opposite-direction (if (= direction :across) :down :across)]
+      (loop [coords start cross-words []]
+        (let [word (get-word board coords opposite-direction)
+              cross-words (if (#{0 1} (count word)) cross-words (conj cross-words word))]
+          (if (= coords end)
+            cross-words
+            (recur (next-space coords direction dim) cross-words)))))))
 
 (declare place-word)
 
 (defn valid-play?
-  ([coordinates direction word] (valid-play? @board coordinates direction word))
-  ([board [column row :as coordinates] direction word]
-    (let [column (column-number column) dim (get-dim board)]
+  "Returns true IFF word may be played at coordinates in direction"
+  ([coordinates direction word] (valid-play? (:board @game) coordinates direction word))
+  ([board coordinates direction word]
+    (let [[column row :as coordinates] (as-coords coordinates) dim (get-dim board)]
       (and
-        (valid-words (string/lower-case word))
+        (valid-word? word)
         (<= (+ (if (= direction :across) column row) (count word)) (inc dim))
-        (check-spaces board [column row] direction word)
-        (->> (get-minor-words (place-word board coordinates direction word) [column row] direction)
-          (map (comp valid-words string/lower-case))
-          (every? boolean))))))
+        (check-spaces board coordinates direction word)
+        (->> (get-cross-words (place-word board coordinates direction word) coordinates direction)
+          (map valid-word?)
+          (every? identity))))))
 
 (defn place
-  ([coordinates letter] (place @board coordinates letter))
+  "Returns a board where letter has been placed at coordinates"
+  ([coordinates letter] (place (:board @game) coordinates letter))
   ([board coordinates letter]
     (assoc board (get-index coordinates (get-dim board)) (string/upper-case letter))))
 
-(defn place!
-  ([coordinates letter] (place! board coordinates letter))
-  ([board coordinates letter]
-    (swap! board place coordinates letter)))
-
 (defn place-word
-  ([coordinates direction word] (place-word @board coordinates direction word)) 
+  "Returns a board where word has been placed at coordinates in direction"
+  ([coordinates direction word] (place-word (:board @game) coordinates direction word)) 
   ([board [column row :as coordinates] direction word]
     (if (empty? word)
       board
@@ -183,18 +236,24 @@
         (recur board (next-space [column row] direction) direction (rest word))))))
 
 (defn place-word!
-  ([coordinates direction word] (place-word! board coordinates direction word)) 
-  ([board coordinates direction word]
-    (swap! board place-word coordinates direction word)))
+  "Swaps the game's board, placing word at coordinates in direction"
+  ([coordinates direction word] (place-word! game coordinates direction word)) 
+  ([game coordinates direction word]
+    (swap! game assoc :board (place-word (:board @game) coordinates direction word))))
 
-(defn letter-score [letter]
-  (let [letter (if (char? letter) letter (first (string/upper-case letter)))]
-    (first (first (filter (fn [[score letters]] (letters letter)) letter-values)))))
+(defn letter-score
+  "Returns the score for letter"
+  ([letter]
+    (let [letter (if (char? letter) letter (first (string/upper-case letter)))]
+      (first (first (filter (fn [[score letters]] (letters letter)) letter-values))))))
 
-(defn word-score [word] (reduce + (map letter-score word)))
+(defn word-score
+  "Returns the score for word (sum of letter scores)"
+  [word] (reduce + (map letter-score word)))
 
 (defn print-board
-  ([] (print-board @board))
+  "Pretty-prints board to the console"
+  ([] (print-board (:board @game)))
   ([board]
     (let [dim (get-dim board)
           builder (StringBuilder.)
@@ -210,9 +269,13 @@
       (println (.toString builder)))))
 
 (defn print-rack
+  "Pretty-prints (optionally sorted) rack to the console"
   ([rack] (print-rack rack true))
   ([rack sort?]
     (println (str "[" (string/join " " (if sort? (sort rack) rack)) "]"))))
+
+(defn play [game coordinates direction word]
+  nil)
 
 (defn -main
   "I don't do a whole lot ... yet."
