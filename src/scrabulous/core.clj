@@ -115,6 +115,7 @@
       shuffle
       vec)))
 
+;; TODO handle case where tile-bag has fewer than n tiles
 (defn draw-tiles
   "Draws n tiles from the tile bag, returning a tuple
   containing the tiles drawn and the bag with the tiles removed"
@@ -188,6 +189,18 @@
             word
             (recur (next-space coords direction dim) word)))))))
 
+(defn get-tiles
+  "Returns the tiles on the board starting at coordinates
+  moving in direction for length spaces"
+  ([board coordinates direction length]
+    (let [dim (get-dim board)]
+      (loop [coordinates coordinates length length tiles []]
+        (if (zero? length)
+          (vec (map first tiles))
+          (let [tile (board (get-index coordinates))
+                tiles (if (nil? tile) tiles (conj tiles tile))]
+            (recur (next-space coordinates direction dim) (dec length) tiles)))))))
+
 (defn get-cross-words
   "Returns a vector of all words crossing the word
   that passes through coordinates in direction"
@@ -205,6 +218,7 @@
 
 (declare place-word)
 
+;; TODO play must be connected to another word
 (defn valid-play?
   "Returns true IFF word may be played at coordinates in direction"
   ([coordinates direction word] (valid-play? (:board @game) coordinates direction word))
@@ -217,6 +231,23 @@
         (->> (get-cross-words (place-word board coordinates direction word) coordinates direction)
           (map valid-word?)
           (every? identity))))))
+
+(defn get-letter-frequencies
+  "Returns a map of characters to the number of occurrences of the character in word"
+  ([word]
+    (->> word
+      (map (comp first string/upper-case))
+      sort
+      (partition-by identity)
+      (map #(vector (first %) (count %)))
+      (into {}))))
+
+(defn has-all-tiles?
+  "Returns true IFF tiles contains all letters from word"
+  ([tiles word]
+    (let [tile-freqs (get-letter-frequencies tiles)
+          word-freqs (get-letter-frequencies word)]
+      (every? #(>= (get tile-freqs % 0) (word-freqs %)) (set (string/upper-case word))))))
 
 (defn place
   "Returns a board where letter has been placed at coordinates"
@@ -274,8 +305,43 @@
   ([rack sort?]
     (println (str "[" (string/join " " (if sort? (sort rack) rack)) "]"))))
 
+(defn print-state
+  "Pretty-prints the state of game to the console"
+  ([game]
+    (print-board (:board game))
+    (println)
+    (doseq [[n player] (:players game)]
+      (println "Player" n "(" (:score player) "points )")
+      (print-rack (:tile-rack player)))
+    (println)
+    (println (count (:tile-bag game)) "tiles remaining")
+    (println "Player" (:active game) "to move")))
+
+(defn remove-letters
+  "Returns a seq of the letters in from minus the letters in to-remove"
+  ([to-remove from]
+    (->> (get-letter-frequencies to-remove)
+      (merge-with - (get-letter-frequencies from))
+      (keep (fn [[letter n]] (if (< n 1) nil (repeat n letter))))
+      flatten)))
+
+;; TODO handle scoring    
 (defn play [game coordinates direction word]
-  nil)
+  (let [coordinates (as-coords coordinates)
+        board (:board @game)
+        active-player (:active @game)
+        player-tiles (get-in @game [:players active-player :tile-rack])
+        board-tiles (get-tiles board coordinates direction (count word))]
+    (when (and (has-all-tiles? (into player-tiles board-tiles) word) (valid-play? board coordinates direction word))
+      (let [played-tiles (remove-letters board-tiles word)
+            player-tiles (remove-letters played-tiles player-tiles)
+            [new-tiles new-bag] (draw-tiles (:tile-bag @game) (- tiles-per-player (count player-tiles)))
+            next-player (if (= active-player (count (:players @game))) 1 (inc active-player))]
+        (place-word! game coordinates direction word)
+        (swap! game assoc :tile-bag new-bag)
+        (swap! game assoc-in [:players active-player :tile-rack] (vec (into player-tiles new-tiles)))
+        (swap! game assoc :active next-player))))
+  (print-state @game))
 
 (defn -main
   "I don't do a whole lot ... yet."
