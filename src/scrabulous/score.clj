@@ -52,10 +52,10 @@
           (* score word-multiplier)
           (let [letter (first word)
                 value (letter-value letter)
-                [letter-mult word-mult] (if (board (get-index coordinates)) [1 1] (square-multipliers coordinates))]
+                [letter-mult word-mult] (if (get-at board coordinates) [1 1] (square-multipliers coordinates))]
             (recur (next-space coordinates direction dim) (rest word) (* word-multiplier word-mult) (+ score (* value letter-mult)))))))))
 
-;; TODO cross-word should only be included if it was formed by the play
+;; TODO + 50 if all 7 tiles used
 (defn play-score
   "Returns the score for all words formed by playing word
   on board starting at coordinates and moving in direction"
@@ -65,11 +65,11 @@
           new-board (place-word board coordinates direction word)
           end (word-end new-board coordinates direction)]
       (loop [coordinates (as-coords coordinates) total (word-score board coordinates direction word)]
-        (let [cross-word (get-word new-board coordinates opposite-direction)
+        (let [cross-word (if (get-at board coordinates) "" (get-word new-board coordinates opposite-direction))
               start-coords (word-start new-board coordinates opposite-direction)
               total (if (#{0 1} (count cross-word))
                       total
-                      (+ total (word-score new-board start-coords opposite-direction cross-word)))]
+                      (+ total (word-score board start-coords opposite-direction cross-word)))]
           (if (= end coordinates)
             total
             (recur (next-space coordinates direction dim) total)))))))

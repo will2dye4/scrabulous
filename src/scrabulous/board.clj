@@ -73,6 +73,10 @@
     (let [column (if (number? column) (dec column) (column-index column))]
       (+ (* dim (dec row)) column))))
 
+(defn get-at
+  "Returns the letter at coordinates on board"
+  [board coordinates] (board (get-index coordinates (get-dim board))))
+
 (defn check-spaces
   "Returns true IFF word fits into the spaces starting at coordinates and
   moving in direction. The space may be empty or have the same letter as word."
@@ -81,7 +85,7 @@
       true
       (let [letter (string/upper-case (first word))
             dim (get-dim board)
-            board-letter (board (get-index coordinates dim))]
+            board-letter (get-at board coordinates)]
         (if (or (nil? board-letter) (= letter board-letter))
           (recur board (next-space coordinates direction dim) direction (rest word))
           false)))))
@@ -91,7 +95,7 @@
   that passes through coordinates in direction"
   ([board coordinates direction]
     (if-let [prev-coordinates (previous-space coordinates direction)]
-      (if (nil? (board (get-index prev-coordinates (get-dim board))))
+      (if (nil? (get-at board prev-coordinates))
         coordinates
         (recur board prev-coordinates direction))
       coordinates)))
@@ -102,7 +106,7 @@
   ([board coordinates direction]
     (let [dim (get-dim board)]
       (if-let [next-coordinates (next-space coordinates direction dim)]
-        (if (nil? (board (get-index next-coordinates dim)))
+        (if (nil? (get-at board next-coordinates))
           coordinates
           (recur board next-coordinates direction))
         coordinates))))
@@ -114,7 +118,7 @@
           end (word-end board coordinates direction)
           dim (get-dim board)]
       (loop [coords start word ""]
-        (let [letter (board (get-index coords dim)) word (str word letter)]
+        (let [letter (get-at board coords) word (str word letter)]
           (if (= coords end)
             word
             (recur (next-space coords direction dim) word)))))))
@@ -127,7 +131,7 @@
       (loop [coordinates coordinates length length tiles []]
         (if (zero? length)
           (vec (map first tiles))
-          (let [tile (board (get-index coordinates))
+          (let [tile (get-at board coordinates)
                 tiles (if (nil? tile) tiles (conj tiles tile))]
             (recur (next-space coordinates direction dim) (dec length) tiles)))))))
 
@@ -181,7 +185,7 @@
         (if (zero? length)
           false
           (let [candidates (concat [coordinates] (neighbors coordinates dim))]
-            (if (some #(board (get-index % dim)) candidates)
+            (if (some #(get-at board %) candidates)
               true
               (recur (next-space coordinates direction dim) (dec length)))))))))
 
