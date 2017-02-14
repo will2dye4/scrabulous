@@ -6,7 +6,9 @@
 
 (def game (atom (create-game 2)))
 
-(defn play [coordinates direction word] (play! game coordinates direction word))
+(defn play
+  ([coordinates direction word] (play coordinates direction word []))
+  ([coordinates direction word blank-tiles] (play! game coordinates direction word blank-tiles)))
 
 (defn -main
   "Prints the game state to the console"

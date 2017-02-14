@@ -5,7 +5,7 @@
 
 (def letter-frequencies
   {1 #{\J \K \Q \X \Z}
-   2 #{\B \C \F \H \M \P \V \W \Y}
+   2 #{\B \C \F \H \M \P \V \W \Y \_}
    3 #{\G}
    4 #{\D \L \S \U}
    6 #{\N \R \T}

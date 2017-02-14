@@ -80,14 +80,17 @@
 (defn check-spaces
   "Returns true IFF word fits into the spaces starting at coordinates and
   moving in direction. The space may be empty or have the same letter as word."
-  ([board coordinates direction word]
+  ([game coordinates direction word]
     (if (empty? word)
       true
-      (let [letter (string/upper-case (first word))
+      (let [board (:board game)
+            coordinates (as-coords coordinates)
+            letter (string/upper-case (first word))
             dim (get-dim board)
-            board-letter (get-at board coordinates)]
+            board-letter (get-at board coordinates)
+            board-letter (if (= "_" board-letter) (get-in game [:blank-tiles coordinates]) board-letter)]
         (if (or (nil? board-letter) (= letter board-letter))
-          (recur board (next-space coordinates direction dim) direction (rest word))
+          (recur game (next-space coordinates direction dim) direction (rest word))
           false)))))
 
 (defn word-start
@@ -204,17 +207,25 @@
             board (place board coordinates letter)]
         (recur board (next-space [column row] direction) direction (rest word))))))
 
+(defn get-square-representation
+  "Returns the representation of the letter at coordinates"
+  ([game coordinates letter]
+    (if (= "_" letter)
+      (string/lower-case (get-in game [:blank-tiles coordinates]))
+      (or letter " "))))
+
 (defn print-board
   "Pretty-prints board to the console"
-  ([board]
-    (let [dim (get-dim board)
+  ([game]
+    (let [board (:board game)
+          dim (get-dim board)
           builder (StringBuilder.)
           separator (str "    +" (apply str (repeat dim "---+")) \newline)]
       (.append builder separator)
-      (doseq [[idx row] (map-indexed vector (partition dim board))]
-        (.append builder (str (if (< idx 9) "  " " ") (inc idx) " |"))
-        (doseq [square row]
-          (.append builder (str " " (or square " ") " |")))
+      (doseq [[row-idx row] (map-indexed vector (partition dim board))]
+        (.append builder (str (if (< row-idx 9) "  " " ") (inc row-idx) " |"))
+        (doseq [[col-idx square] (map-indexed vector row)]
+          (.append builder (str " " (get-square-representation game [(inc col-idx) (inc row-idx)] square) " |")))
         (.append builder \newline)
         (.append builder separator))
       (.append builder (apply str "      " (string/join "   " (get-columns dim))))
