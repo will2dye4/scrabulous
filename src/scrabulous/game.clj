@@ -47,6 +47,7 @@
           word-freqs (get-letter-frequencies word)]
       (every? #(>= (get tile-freqs % 0) (word-freqs %)) (set (string/upper-case word))))))
 
+;; TODO verify blank space on either side in direction
 (defn valid-play?
   "Returns true IFF word may be played at coordinates in direction"
   ([game coordinates direction word]
