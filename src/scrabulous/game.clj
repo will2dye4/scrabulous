@@ -1,5 +1,6 @@
 (ns scrabulous.game
   (:require [scrabulous.board :refer :all]
+            [scrabulous.score :refer [play-score]]
             [scrabulous.tiles :refer :all]
             [clojure.java.io :as io]
             [clojure.string :as string]))
@@ -81,11 +82,12 @@
 
 (defn update-game
   "Returns updated game state after a player moves"
-  ([game board tile-bag tile-rack]
+  ([game board tile-bag tile-rack score]
     (-> game
       (assoc :board board)
       (assoc :tile-bag tile-bag)
       (assoc-in [:players (:active game) :tile-rack] tile-rack)
+      (update-in [:players (:active game) :score] + score)
       (assoc :active (next-player game)))))
 
 (declare print-state)
@@ -104,8 +106,9 @@
         (let [played-tiles (remove-letters board-tiles word)
               player-tiles (remove-letters played-tiles player-tiles)
               [new-tiles new-bag] (draw-tiles (:tile-bag @game) (- tiles-per-player (count player-tiles)))
-              new-tiles (vec (concat player-tiles new-tiles))]
-          (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles))))
+              new-tiles (vec (concat player-tiles new-tiles))
+              score (play-score board coordinates direction word)]
+          (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles score))))
     (print-state @game)))
 
 (defn print-state
