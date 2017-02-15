@@ -59,14 +59,15 @@
 (defn play-score
   "Returns the score for all words formed by playing word
   on board starting at coordinates and moving in direction"
-  ([board coordinates direction word used-all-tiles?]
-    (let [dim (get-dim board)
+  ([game coordinates direction word used-all-tiles?]
+    (let [board (:board game)
+          dim (get-dim board)
           opposite-direction (get-opposite direction)
           new-board (place-word board coordinates direction word)
           end (word-end new-board coordinates direction)
           bonus (if used-all-tiles? 50 0)]
       (loop [coordinates (as-coords coordinates) total (+ (word-score board coordinates direction word) bonus)]
-        (let [cross-word (if (get-at board coordinates) "" (get-word new-board coordinates opposite-direction))
+        (let [cross-word (if (get-at board coordinates) "" (get-word (assoc game :board new-board) coordinates opposite-direction false))
               start-coords (word-start new-board coordinates opposite-direction)
               total (if (#{0 1} (count cross-word))
                       total

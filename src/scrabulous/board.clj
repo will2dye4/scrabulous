@@ -77,6 +77,15 @@
   "Returns the letter at coordinates on board"
   [board coordinates] (board (get-index coordinates (get-dim board))))
 
+(defn get-letter-at
+  "Returns the real letter (replacing blanks) at coordinates"
+  ([game coordinates]
+    (let [coordinates (as-coords coordinates)
+          letter (get-at (:board game) coordinates)]
+      (if (= "_" letter)
+        (string/upper-case (get-in game [:blank-tiles coordinates]))
+        letter))))
+
 (defn check-spaces
   "Returns true IFF word fits into the spaces starting at coordinates and
   moving in direction. The space may be empty or have the same letter as word."
@@ -87,8 +96,7 @@
             coordinates (as-coords coordinates)
             letter (string/upper-case (first word))
             dim (get-dim board)
-            board-letter (get-at board coordinates)
-            board-letter (if (= "_" board-letter) (get-in game [:blank-tiles coordinates]) board-letter)]
+            board-letter (get-letter-at game coordinates)]
         (if (or (nil? board-letter) (= letter board-letter))
           (recur game (next-space coordinates direction dim) direction (rest word))
           false)))))
@@ -116,12 +124,13 @@
 
 (defn get-word
   "Returns the word that passes through coordinates in direction"
-  ([board coordinates direction]
-    (let [start (word-start board coordinates direction)
+  ([game coordinates direction replace-blanks?]
+    (let [board (:board game)
+          start (word-start board coordinates direction)
           end (word-end board coordinates direction)
           dim (get-dim board)]
       (loop [coords start word ""]
-        (let [letter (get-at board coords) word (str word letter)]
+        (let [letter ((if replace-blanks? get-letter-at get-at) game coords) word (str word letter)]
           (if (= coords end)
             word
             (recur (next-space coords direction dim) word)))))))
@@ -129,12 +138,12 @@
 (defn get-tiles
   "Returns the tiles on the board starting at coordinates
   moving in direction for length spaces"
-  ([board coordinates direction length]
-    (let [dim (get-dim board)]
+  ([game coordinates direction length]
+    (let [dim (get-dim (:board game))]
       (loop [coordinates coordinates length length tiles []]
         (if (zero? length)
           (vec (map first tiles))
-          (let [tile (get-at board coordinates)
+          (let [tile (get-letter-at game coordinates)
                 tiles (if (nil? tile) tiles (conj tiles tile))]
             (recur (next-space coordinates direction dim) (dec length) tiles)))))))
 
@@ -145,13 +154,14 @@
 (defn get-cross-words
   "Returns a vector of all words crossing the word
   that passes through coordinates in direction"
-  ([board coordinates direction]
-    (let [start (word-start board coordinates direction)
+  ([game coordinates direction]
+    (let [board (:board game)
+          start (word-start board coordinates direction)
           end (word-end board coordinates direction)
           dim (get-dim board)
           opposite-direction (get-opposite direction)]
       (loop [coords start cross-words []]
-        (let [word (get-word board coords opposite-direction)
+        (let [word (get-word game coords opposite-direction true)
               cross-words (if (#{0 1} (count word)) cross-words (conj cross-words word))]
           (if (= coords end)
             cross-words
@@ -204,7 +214,7 @@
       board
       (let [letter (first word)
             column (column-number column)
-            board (place board coordinates letter)]
+            board (if (get-at board coordinates) board (place board coordinates letter))]
         (recur board (next-space [column row] direction) direction (rest word))))))
 
 (defn get-square-representation

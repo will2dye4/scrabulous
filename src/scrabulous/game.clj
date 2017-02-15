@@ -51,8 +51,10 @@
 (defn replace-blanks
   "Replace the blank tiles in word with the appropriate letters"
   ([game coordinates direction word]
-    (let [dim (get-dim (:board game))
-          blank-tiles (:blank-tiles game)]
+    (let [board (:board game)
+          dim (get-dim board)
+          blank-tiles (:blank-tiles game)
+          coordinates (word-start board coordinates direction)]
       (loop [coordinates (as-coords coordinates) original-word word replaced-word ""]
         (if (empty? original-word)
           replaced-word
@@ -72,7 +74,7 @@
         (valid-word? word)
         (<= (+ (if (= direction :across) column row) length) (inc dim))
         (check-spaces game coordinates direction word)
-        (->> (get-cross-words (place-word board coordinates direction word) coordinates direction)
+        (->> (get-cross-words (assoc game :board (place-word board coordinates direction word)) coordinates direction)
           (map #(replace-blanks game coordinates (get-opposite direction) %))
           (map valid-word?)
           (every? identity))
@@ -140,7 +142,7 @@
           board (:board @game)
           active-player (:active @game)
           player-tiles (get-in @game [:players active-player :tile-rack])
-          board-tiles (get-tiles board coordinates direction (count word))
+          board-tiles (get-tiles @game coordinates direction (count word))
           has-all-tiles (has-all-tiles? (concat player-tiles board-tiles) word)
           has-enough-blanks (>= (count (filter #(= \_ %) player-tiles)) (count blank-tiles))
           valid-play (valid-play? @game coordinates direction (substitute-blanks word blank-tiles))]
@@ -149,7 +151,7 @@
               player-tiles (remove-letters played-tiles player-tiles)
               [new-tiles new-bag] (draw-tiles (:tile-bag @game) (- tiles-per-player (count player-tiles)))
               new-tiles (vec (concat player-tiles new-tiles))
-              score (play-score board coordinates direction word (= tiles-per-player (count played-tiles)))
+              score (play-score @game coordinates direction word (= tiles-per-player (count played-tiles)))
               blanks (get-blank-locations board coordinates direction word blank-tiles)]
           (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles blanks score))))
     (print-state @game)))
