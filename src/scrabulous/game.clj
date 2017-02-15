@@ -75,7 +75,7 @@
         (<= (+ (if (= direction :across) column row) length) (inc dim))
         (check-spaces game coordinates direction word)
         (->> (get-cross-words (assoc game :board (place-word board coordinates direction word)) coordinates direction)
-          (map #(replace-blanks game coordinates (get-opposite direction) %))
+          (map #(replace-blanks game coordinates (get-opposite direction) %))  ;; TODO need to use coordinates of the cross word, not word
           (map valid-word?)
           (every? identity))
         (if (every? zero? (map (comp :score val) (:players game)))

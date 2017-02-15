@@ -130,7 +130,7 @@
           end (word-end board coordinates direction)
           dim (get-dim board)]
       (loop [coords start word ""]
-        (let [letter ((if replace-blanks? get-letter-at get-at) game coords) word (str word letter)]
+        (let [letter (if replace-blanks? (get-letter-at game coords) (get-at board coords)) word (str word letter)]
           (if (= coords end)
             word
             (recur (next-space coords direction dim) word)))))))
