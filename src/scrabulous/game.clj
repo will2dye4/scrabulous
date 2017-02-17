@@ -154,6 +154,30 @@
           (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles blanks score))))
     (print-state @game)))
 
+(defn pass!
+  "Updates the game state to set the active player to the next player"
+  ([game]
+    (swap! game assoc :active (next-player @game))
+    (print-state @game)))
+
+(defn exchange!
+  "Exchanges tiles for the active player and advances play to the next player"
+  ([game tiles]
+    (let [active-player (:active @game)
+          player-tiles (get-in @game [:players active-player :tile-rack])
+          has-all-tiles (has-all-tiles? player-tiles (reduce str tiles))
+          enough-tiles-left (>= (count (:tile-bag @game)) (count tiles))]
+      (when (and has-all-tiles enough-tiles-left)
+        (let [leftover-tiles (remove-letters tiles player-tiles)
+              [new-tiles new-bag] (draw-tiles (:tile-bag @game) (count tiles))
+              player-tiles (concat leftover-tiles new-tiles)
+              tile-bag (shuffle (concat new-bag tiles))]
+          (swap! game #(-> %
+            (assoc :tile-bag tile-bag)
+            (assoc-in [:players active-player :tile-rack] player-tiles)
+            (assoc :active (next-player @game)))))))
+    (print-state @game)))
+
 (defn print-state
   "Pretty-prints the state of game to the console"
   ([game]

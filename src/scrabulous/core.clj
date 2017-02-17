@@ -8,6 +8,10 @@
   ([coordinates direction word] (play coordinates direction word []))
   ([coordinates direction word blank-tiles] (play! game coordinates direction word blank-tiles)))
 
+(defn pass [] (pass! game))
+
+(defn exchange [tiles] (exchange! game tiles))
+
 (defn -main
   "Prints the game state to the console"
   ([& args]
