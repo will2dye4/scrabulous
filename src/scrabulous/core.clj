@@ -4,9 +4,15 @@
 
 (def game (atom (create-game 2)))
 
-(defn play
-  ([coordinates direction word] (play coordinates direction word []))
-  ([coordinates direction word blank-tiles] (play! game coordinates direction word blank-tiles)))
+(defmacro play
+  ([coordinates direction word] (list `play coordinates direction word []))
+  ([coordinates direction word blank-tiles]
+    (let [coords# (name coordinates)
+          col# (subs coords# 0 1)
+          row# (Integer/parseInt (subs coords# 1))
+          dir# (keyword direction)
+          word# (name word)]
+      (list `play! `game [col# row#] dir# word# blank-tiles))))
 
 (defn pass [] (pass! game))
 
