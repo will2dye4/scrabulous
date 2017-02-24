@@ -220,9 +220,22 @@
 (defn get-square-representation
   "Returns the representation of the letter at coordinates"
   ([game coordinates letter]
-    (if (= "_" letter)
-      (string/lower-case (get-in game [:blank-tiles coordinates]))
-      (or letter " "))))
+    (let [board (:board game)
+          dim (get-dim board)
+          center-index (inc (quot dim 2))
+          center [center-index center-index]
+          multiplier (first (filter (fn [[type squares]] (squares coordinates)) (:multipliers game)))
+          color (if multiplier
+                  (condp = (first multiplier)
+                    :double-letter "\u001B[46m"
+                    :triple-letter "\u001B[44m"
+                    :double-word "\u001B[101m"
+                    :triple-word "\u001B[41m")
+                  "\u001B[0m")
+          letter (if (= "_" letter)
+                   (string/lower-case (get-in game [:blank-tiles coordinates]))
+                   (if (and (= center coordinates) (nil? letter)) "*" (or letter " ")))]
+      (str color " " letter " \u001B[0m|"))))
 
 (defn print-board
   "Pretty-prints board to the console"
@@ -235,7 +248,7 @@
       (doseq [[row-idx row] (map-indexed vector (partition dim board))]
         (.append builder (str (if (< row-idx 9) "  " " ") (inc row-idx) " |"))
         (doseq [[col-idx square] (map-indexed vector row)]
-          (.append builder (str " " (get-square-representation game [(inc col-idx) (inc row-idx)] square) " |")))
+          (.append builder (get-square-representation game [(inc col-idx) (inc row-idx)] square)))
         (.append builder \newline)
         (.append builder separator))
       (.append builder (apply str "      " (string/join "   " (get-columns dim))))

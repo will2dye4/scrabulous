@@ -1,6 +1,6 @@
 (ns scrabulous.game
   (:require [scrabulous.board :refer :all]
-            [scrabulous.score :refer [play-score]]
+            [scrabulous.score :refer [multipliers play-score]]
             [scrabulous.tiles :refer :all]
             [clojure.java.io :as io]
             [clojure.string :as string]))
@@ -20,7 +20,8 @@
   board size, and letter frequencies"
   ([num-players] (create-game num-players dim))
   ([num-players dim] (create-game num-players dim letter-frequencies))
-  ([num-players dim letter-frequencies]
+  ([num-players dim letter-frequencies] (create-game num-players dim letter-frequencies multipliers))
+  ([num-players dim letter-frequencies multipliers]
     (let [tile-bag (create-tile-bag letter-frequencies)
           reduce-fn (fn [[bag racks] _] (let [[r b] (tile-rack bag)] [b (conj racks r)]))
           [tile-bag tile-racks] (reduce reduce-fn [tile-bag []] (range num-players))
@@ -28,6 +29,7 @@
       {:board (create-board dim)
        :tile-bag tile-bag
        :blank-tiles {}
+       :multipliers multipliers
        :players players
        :active 1})))
 

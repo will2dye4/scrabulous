@@ -26,7 +26,7 @@
 
 (defn square-multipliers
   "Returns a tuple of letter and word multipliers for the square on board at coordinates"
-  ([coordinates]
+  ([coordinates multipliers]
     (let [coordinates (as-coords coordinates)
           multiplier-entry (first (filter (fn [[type squares]] (squares coordinates)) multipliers))]
       (if multiplier-entry
@@ -46,14 +46,15 @@
 (defn word-score
   "Returns the score for word played on board
   starting at coordinates and moving in direction"
-  ([board coordinates direction word]
-    (let [dim (get-dim board)]
+  ([game coordinates direction word]
+    (let [board (:board game)
+          dim (get-dim board)]
       (loop [coordinates coordinates word word word-multiplier 1 score 0]
         (if (empty? word)
           (* score word-multiplier)
           (let [letter (first word)
                 value (letter-value letter)
-                [letter-mult word-mult] (if (get-at board coordinates) [1 1] (square-multipliers coordinates))]
+                [letter-mult word-mult] (if (get-at board coordinates) [1 1] (square-multipliers coordinates (:multipliers game)))]
             (recur (next-space coordinates direction dim) (rest word) (* word-multiplier word-mult) (+ score (* value letter-mult)))))))))
 
 (defn play-score
@@ -66,12 +67,12 @@
           new-board (place-word board coordinates direction word)
           end (word-end new-board coordinates direction)
           bonus (if used-all-tiles? 50 0)]
-      (loop [coordinates (as-coords coordinates) total (+ (word-score board coordinates direction word) bonus)]
+      (loop [coordinates (as-coords coordinates) total (+ (word-score game coordinates direction word) bonus)]
         (let [cross-word (if (get-at board coordinates) "" (get-word (assoc game :board new-board) coordinates opposite-direction false))
               start-coords (word-start new-board coordinates opposite-direction)
               total (if (#{0 1} (count cross-word))
                       total
-                      (+ total (word-score board start-coords opposite-direction cross-word)))]
+                      (+ total (word-score game start-coords opposite-direction cross-word)))]
           (if (= end coordinates)
             total
             (recur (next-space coordinates direction dim) total)))))))
