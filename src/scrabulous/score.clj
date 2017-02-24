@@ -12,6 +12,8 @@
    8 #{\J \X}
    10 #{\Q \Z}})
 
+(def all-tile-bonus 50)
+
 (def -multipliers
   {:double-letter [[:D 1] [:L 1] [:G 3] [:I 3] [:A 4] [:H 4] [:O 4] [:C 7]
                    [:G 7] [:I 7] [:M 7] [:D 8] [:L 8] [:C 9] [:G 9] [:I 9]
@@ -66,13 +68,15 @@
           opposite-direction (get-opposite direction)
           new-board (place-word board coordinates direction word)
           end (word-end new-board coordinates direction)
-          bonus (if used-all-tiles? 50 0)]
-      (loop [coordinates (as-coords coordinates) total (+ (word-score game coordinates direction word) bonus)]
+          main-word-score (word-score game coordinates direction word)
+          bonus (if used-all-tiles? all-tile-bonus 0)]
+      (loop [coordinates (as-coords coordinates)
+             scores [[word main-word-score]]]
         (let [cross-word (if (get-at board coordinates) "" (get-word (assoc game :board new-board) coordinates opposite-direction false))
               start-coords (word-start new-board coordinates opposite-direction)
-              total (if (#{0 1} (count cross-word))
-                      total
-                      (+ total (word-score game start-coords opposite-direction cross-word)))]
+              scores (if (#{0 1} (count cross-word))
+                       scores
+                       (conj scores [cross-word (word-score game start-coords opposite-direction cross-word)]))]
           (if (= end coordinates)
-            total
-            (recur (next-space coordinates direction dim) total)))))))
+            {:total (+ bonus (reduce + (map second scores))) :words scores}
+            (recur (next-space coordinates direction dim) scores)))))))

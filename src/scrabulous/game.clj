@@ -25,7 +25,7 @@
     (let [tile-bag (create-tile-bag letter-frequencies)
           reduce-fn (fn [[bag racks] _] (let [[r b] (tile-rack bag)] [b (conj racks r)]))
           [tile-bag tile-racks] (reduce reduce-fn [tile-bag []] (range num-players))
-          players (into {} (map-indexed (fn [n rack] [(inc n) {:tile-rack rack :score 0}]) tile-racks))]
+          players (into {} (map-indexed (fn [n rack] [(inc n) {:tile-rack rack :score 0 :moves []}]) tile-racks))]
       {:board (create-board dim)
        :tile-bag tile-bag
        :blank-tiles {}
@@ -99,13 +99,14 @@
 
 (defn update-game
   "Returns updated game state after a player moves"
-  ([game board tile-bag tile-rack blank-locations score]
+  ([game board tile-bag tile-rack blank-locations scores]
     (-> game
       (assoc :board board)
       (assoc :tile-bag tile-bag)
       (update :blank-tiles into blank-locations)
       (assoc-in [:players (:active game) :tile-rack] tile-rack)
-      (update-in [:players (:active game) :score] + score)
+      (update-in [:players (:active game) :score] + (:total scores))
+      (update-in [:players (:active game) :moves] conj scores)
       (assoc :active (next-player game)))))
 
 (defn substitute-blanks
@@ -151,9 +152,9 @@
               player-tiles (remove-letters played-tiles player-tiles)
               [new-tiles new-bag] (draw-tiles (:tile-bag @game) (- tiles-per-player (count player-tiles)))
               new-tiles (vec (concat player-tiles new-tiles))
-              score (play-score @game coordinates direction word (= tiles-per-player (count played-tiles)))
+              scores (play-score @game coordinates direction word (= tiles-per-player (count played-tiles)))
               blanks (get-blank-locations board coordinates direction word blank-tiles)]
-          (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles blanks score))))
+          (swap! game update-game (place-word board coordinates direction word) new-bag new-tiles blanks scores))))
     (print-state @game)))
 
 (defn pass!
