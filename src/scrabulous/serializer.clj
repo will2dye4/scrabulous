@@ -20,4 +20,5 @@
 (defn save-game
   "Saves game to filepath"
   ([game filepath]
-   (json/generate-stream (game->json game) (io/writer filepath))))
+   (with-open [writer (io/writer filepath)]
+     (json/generate-stream (game->json game) writer))))
