@@ -217,29 +217,35 @@
             board (if (get-at board coordinates) board (place board coordinates letter))]
         (recur board (next-space [column row] direction) direction (rest word))))))
 
+(def terminal-colors
+  {:cyan 46
+   :blue 44
+   :light-red 101
+   :red 41
+   :white 97})
+
 (defn get-square-representation
-  "Returns the representation of the letter at coordinates"
-  ([game coordinates letter]
-    (let [board (:board game)
-          dim (get-dim board)
-          center-index (inc (quot dim 2))
-          center [center-index center-index]
-          multiplier (first (filter (fn [[type squares]] (squares coordinates)) (:multipliers game)))
-          color (if multiplier
-                  (condp = (first multiplier)
-                    :double-letter "\u001B[46m"
-                    :triple-letter "\u001B[44m"
-                    :double-word "\u001B[101m"
-                    :triple-word "\u001B[41m")
-                  "\u001B[0m")
+  "Returns the representation of the square at coordinates"
+  ([game coordinates letter] (get-square-representation game coordinates letter true))
+  ([game coordinates letter colorize?]
+    (let [center (vec (repeat 2 (inc (quot (get-dim (:board game)) 2))))
           letter (if (= "_" letter)
                    (string/lower-case (get-in game [:blank-tiles coordinates]))
-                   (if (and (= center coordinates) (nil? letter)) "*" (or letter " ")))]
-      (str color " " letter " \u001B[0m|"))))
+                   (if (and (= center coordinates) (nil? letter)) "*" (or letter " ")))
+          multiplier (when colorize? (first (filter (fn [[_ squares]] (squares coordinates)) (:multipliers game))))
+          color (when multiplier
+                  (condp = (first multiplier)
+                    :double-letter :cyan
+                    :triple-letter :blue
+                    :double-word :light-red
+                    :triple-word :red))
+          color-str (when color (str "\u001B[1;" (terminal-colors :white) ";" (terminal-colors color) "m"))]
+      (str color-str " " letter " " (when color "\u001B[0m") "|"))))
 
 (defn print-board
   "Pretty-prints board to the console"
-  ([game]
+  ([game] (print-board game true))
+  ([game colorize?]
     (let [board (:board game)
           dim (get-dim board)
           builder (StringBuilder.)
@@ -248,7 +254,7 @@
       (doseq [[row-idx row] (map-indexed vector (partition dim board))]
         (.append builder (str (if (< row-idx 9) "  " " ") (inc row-idx) " |"))
         (doseq [[col-idx square] (map-indexed vector row)]
-          (.append builder (get-square-representation game [(inc col-idx) (inc row-idx)] square)))
+          (.append builder (get-square-representation game [(inc col-idx) (inc row-idx)] square colorize?)))
         (.append builder \newline)
         (.append builder separator))
       (.append builder (apply str "      " (string/join "   " (get-columns dim))))
