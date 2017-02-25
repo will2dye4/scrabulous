@@ -59,6 +59,12 @@
                 [letter-mult word-mult] (if (get-at board coordinates) [1 1] (square-multipliers coordinates (:multipliers game)))]
             (recur (next-space coordinates direction dim) (rest word) (* word-multiplier word-mult) (+ score (* value letter-mult)))))))))
 
+(defn new-move
+  "Returns a new move map from the pre-computed components of a move"
+  ([scores] (new-move scores 0))
+  ([scores bonus]
+   {:total (+ bonus (reduce + (map second scores))) :words scores}))
+
 (defn play-score
   "Returns the score for all words formed by playing word
   on board starting at coordinates and moving in direction"
@@ -78,5 +84,5 @@
                        scores
                        (conj scores [cross-word (word-score game start-coords opposite-direction cross-word)]))]
           (if (= end coordinates)
-            {:total (+ bonus (reduce + (map second scores))) :words scores}
+            (new-move scores bonus)
             (recur (next-space coordinates direction dim) scores)))))))

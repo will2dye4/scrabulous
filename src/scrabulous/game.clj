@@ -15,9 +15,29 @@
   "Returns true IFF word is in the dictionary"
   [word] (boolean (valid-words (string/lower-case word))))
 
+(defn new-player
+  "Creates a new player map from the pre-computed components of a player"
+  ([tile-rack] (new-player tile-rack 0 []))
+  ([tile-rack score moves]
+    {:tile-rack tile-rack
+     :score score
+     :moves moves}))
+
+(defn new-game
+  "Creates a new game map from the pre-computed components of a game"
+  ([board players] (new-game board [] multipliers players))
+  ([board tile-bag multipliers players] (new-game board tile-bag {} multipliers players 1))
+  ([board tile-bag blank-tiles multipliers players active-player]
+   {:board board
+    :tile-bag tile-bag
+    :blank-tiles blank-tiles
+    :multipliers multipliers
+    :players (into {} (map-indexed (fn [n player] [(inc n) player]) players))
+    :active active-player}))
+
 (defn create-game
   "Creates a new game with the specified number of players,
-  board size, and letter frequencies"
+  board size, letter frequencies, and multiplier squares"
   ([num-players] (create-game num-players dim))
   ([num-players dim] (create-game num-players dim letter-frequencies))
   ([num-players dim letter-frequencies] (create-game num-players dim letter-frequencies multipliers))
@@ -25,13 +45,8 @@
     (let [tile-bag (create-tile-bag letter-frequencies)
           reduce-fn (fn [[bag racks] _] (let [[r b] (tile-rack bag)] [b (conj racks r)]))
           [tile-bag tile-racks] (reduce reduce-fn [tile-bag []] (range num-players))
-          players (into {} (map-indexed (fn [n rack] [(inc n) {:tile-rack rack :score 0 :moves []}]) tile-racks))]
-      {:board (create-board dim)
-       :tile-bag tile-bag
-       :blank-tiles {}
-       :multipliers multipliers
-       :players players
-       :active 1})))
+          players (map new-player tile-racks)]
+      (new-game (create-board dim) tile-bag {} multipliers players 1))))
 
 (defn get-letter-frequencies
   "Returns a map of characters to the number of occurrences of the character in word"
