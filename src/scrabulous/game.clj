@@ -46,7 +46,7 @@
           reduce-fn (fn [[bag racks] _] (let [[r b] (tile-rack bag)] [b (conj racks r)]))
           [tile-bag tile-racks] (reduce reduce-fn [tile-bag []] (range num-players))
           players (map new-player tile-racks)]
-      (new-game (create-board dim) tile-bag {} multipliers players 1))))
+      (new-game (create-board dim) tile-bag multipliers players))))
 
 (defn get-letter-frequencies
   "Returns a map of characters to the number of occurrences of the character in word"

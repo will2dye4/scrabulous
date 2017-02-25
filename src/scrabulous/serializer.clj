@@ -45,5 +45,4 @@
 
 (defn load-game
   "Loads game from filepath"
-  ([filepath]
-    (json->game (parse-string (slurp filepath) true))))
+  [filepath] (json->game (parse-string (slurp filepath) true)))
