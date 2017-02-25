@@ -27,8 +27,7 @@
 
 (defn scores->moves
   "Converts a sequence of scores to a vector of move maps"
-  ([scores]
-    (vec (map #(new-move [["?" %]]) scores))))
+  [scores] (vec (map #(new-move [["?" %]]) scores)))
 
 (defn json->game
   "Converts JSON to a game instance"
