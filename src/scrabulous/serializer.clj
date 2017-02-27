@@ -15,7 +15,7 @@
                       (partition dim)
                       (map vec)
                       (into []))
-          moves (vec (map (fn [[_ player]] (vec (map :total (:moves player)))) (:players game)))]
+          moves (mapv (fn [[_ player]] (mapv :total (:moves player))) (:players game))]
       {:board new-board
        :moves moves})))
 
@@ -34,11 +34,10 @@
   ([json]
     (let [board (->> (:board json)
                   flatten
-                  (map #(condp = %
+                  (mapv #(condp = %
                           "*" "_"
                           "" nil
-                          %))
-                  vec)
+                          %)))
           players (map #(new-player [] (reduce + %) (scores->moves %)) (:moves json))]
       (new-game board players))))
 

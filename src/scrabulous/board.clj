@@ -15,7 +15,7 @@
 (defn get-columns
   "Returns a vector of the column names on a board of size dim, starting at A"
   ([] (get-columns dim))
-  ([dim] (vec (map (comp str char) (range (int \A) (+ (int \A) dim))))))
+  ([dim] (mapv (comp str char) (range (int \A) (+ (int \A) dim)))))
 
 (def columns (get-columns))
 
@@ -142,7 +142,7 @@
     (let [dim (get-dim (:board game))]
       (loop [coordinates coordinates length length tiles []]
         (if (zero? length)
-          (vec (map first tiles))
+          (mapv first tiles)
           (let [tile (get-letter-at game coordinates)
                 tiles (if (nil? tile) tiles (conj tiles tile))]
             (recur (next-space coordinates direction dim) (dec length) tiles)))))))
