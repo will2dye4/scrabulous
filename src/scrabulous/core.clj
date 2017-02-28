@@ -1,5 +1,7 @@
 (ns scrabulous.core
-  (:require [scrabulous.game :refer :all])
+  (:require [scrabulous.game :refer :all]
+            [scrabulous.recovery :refer [recover-moves]]
+            [scrabulous.serializer :refer [load-game]])
   (:gen-class))
 
 (def game (atom (create-game 2)))
@@ -17,6 +19,8 @@
 (defn pass [] (pass! game))
 
 (defn exchange [tiles] (exchange! game tiles))
+
+(defn test-recovery [] (recover-moves (load-game "/tmp/partial_game.json")))
 
 (defn -main
   "Prints the game state to the console"
