@@ -51,33 +51,40 @@
 
 (defn candidates-through
   "Returns a map of subwords and all locations where the subword
-  occurs in the outer word starting at start-coords and moving in direction
-  AND passes through through-coords"
-  ([start-coords target-coords direction word]
-    (->> (candidates start-coords direction word)
-      (filter (fn [{subword :word start :coordinates}]
-                (passes-through? start target-coords direction subword))))))
+  passes through coordinates in the specified direction. If no direction
+  is supplied, both directions (across and down) are considered."
+  ([game coordinates] (candidates-through game coordinates nil))
+  ([game coordinates direction]
+    (flatten
+      (for [direction (if (nil? direction) [:across :down] [direction])]
+        (let [word (string/lower-case (get-word game coordinates direction false))
+              start-coords (word-start (:board game) coordinates direction)]
+          (filter
+            #(passes-through? (:coordinates %) coordinates direction (:word %))
+            (candidates start-coords direction word)))))))
+
+(defn matching-moves
+  "Returns a vector of possible moves (including player) given
+  a game in progress, the remaining (unmatched) scores from a
+  finished game, and a set of candidate words"
+  ([game scores candidates]
+   (loop [candidates candidates moves []]
+     (if (empty? candidates)
+       moves
+       (let [{:keys [word direction coordinates] :as candidate} (first candidates)
+             used-all? (= tiles-per-player (count word))    ;; TODO need to check if tiles PLAYED == 7
+             score (play-score game coordinates direction word used-all?)
+             players (filter (fn [[_ ss]] (= (first ss) (:total score))) scores)
+             moves (apply conj moves (map #(assoc candidate :player (first %)) players))]
+         (recur (rest candidates) moves))))))
 
 (defn recover-moves
   "Returns a vector of all possible sequences of moves that couuld have been played
   based on the final state of the board and the points scored per player per turn"
   ([game]
     (let [scores (into {} (map (fn [[n player]] [n (mapv :total (:moves player))]) (:players game)))
-          final-board (:board game)
-          dim (get-dim final-board)
+          dim (get-dim (:board game))
           center (vec (repeat 2 (inc (quot dim 2))))
-          center-candidates (flatten (for [direction [:across :down]]
-                                       (let [center-word (string/lower-case (get-word game center direction false))
-                                             start-coords (word-start final-board center direction)]
-                                         (candidates-through start-coords center direction center-word))))
           test-game (new-game (create-board dim) [] (:multipliers game) (:players game))
-          possible-moves (loop [candidates center-candidates moves []]
-                           (if (empty? candidates)
-                             moves
-                             (let [{:keys [word direction coordinates] :as candidate} (first candidates)
-                                   used-all? (= tiles-per-player (count word))
-                                   score (play-score test-game coordinates direction word used-all?)
-                                   players (filter (fn [[_ ss]] (= (first ss) (:total score))) scores)
-                                   moves (apply conj moves (map #(assoc candidate :player (first %)) players))]
-                               (recur (rest candidates) moves))))]
+          possible-moves (matching-moves test-game scores (candidates-through game center))]
       possible-moves)))
