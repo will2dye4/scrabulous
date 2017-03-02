@@ -68,15 +68,15 @@
   a game in progress, the remaining (unmatched) scores from a
   finished game, and a set of candidate words"
   ([game scores candidates]
-   (loop [candidates candidates moves []]
-     (if (empty? candidates)
-       moves
-       (let [{:keys [word direction coordinates] :as candidate} (first candidates)
-             used-all? (= tiles-per-player (count word))    ;; TODO need to check if tiles PLAYED == 7
-             score (play-score game coordinates direction word used-all?)
-             players (filter (fn [[_ ss]] (= (first ss) (:total score))) scores)
-             moves (apply conj moves (map #(assoc candidate :player (first %)) players))]
-         (recur (rest candidates) moves))))))
+    (loop [candidates candidates moves []]
+      (if (empty? candidates)
+        moves
+        (let [{:keys [word direction coordinates] :as candidate} (first candidates)
+              used-all? (= tiles-per-player (count word))    ;; TODO need to check if tiles PLAYED == 7
+              score (play-score game coordinates direction word used-all?)
+              players (filter (fn [[_ ss]] (= (first ss) (:total score))) scores)
+              moves (apply conj moves (map #(assoc candidate :player (first %)) players))]
+          (recur (rest candidates) moves))))))
 
 (defn recover-moves
   "Returns a vector of all possible sequences of moves that couuld have been played
