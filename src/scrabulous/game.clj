@@ -17,6 +17,7 @@
 
 (defn new-player
   "Creates a new player map from the pre-computed components of a player"
+  ([] (new-player []))
   ([tile-rack] (new-player tile-rack 0 []))
   ([tile-rack score moves]
     {:tile-rack tile-rack
