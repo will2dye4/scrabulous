@@ -187,7 +187,8 @@
     (->> [:across :down]
       (map #(vector (previous-space coordinates %) (next-space coordinates % dim)))
       (apply into)
-      (keep identity))))
+      (keep identity)
+      set)))
 
 (defn connected?
   "Returns true IFF a word of the specified length starting at coordinates
