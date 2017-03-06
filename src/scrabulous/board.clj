@@ -83,7 +83,7 @@
     (let [coordinates (as-coords coordinates)
           letter (get-at (:board game) coordinates)]
       (if (= "_" letter)
-        (string/upper-case (get-in game [:blank-tiles coordinates]))
+        (string/upper-case (or (get-in game [:blank-tiles coordinates]) "_"))
         letter))))
 
 (defn check-spaces
@@ -231,7 +231,7 @@
   ([game coordinates letter colorize?]
     (let [center (vec (repeat 2 (inc (quot (get-dim (:board game)) 2))))
           letter (if (= "_" letter)
-                   (string/lower-case (get-in game [:blank-tiles coordinates]))
+                   (string/lower-case (or (get-in game [:blank-tiles coordinates]) "_"))
                    (if (and (= center coordinates) (nil? letter)) "*" (or letter " ")))
           multiplier (when colorize? (first (filter (fn [[_ squares]] (squares coordinates)) (:multipliers game))))
           color (when multiplier
