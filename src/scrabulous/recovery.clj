@@ -1,17 +1,25 @@
 (ns scrabulous.recovery
   (:require [scrabulous.board :refer :all]
-            [scrabulous.game :refer [new-game new-player remove-letters valid-words]]
+            [scrabulous.game :refer [new-game new-player remove-letters valid-words valid-word?]]
             [scrabulous.score :refer [play-score]]
             [scrabulous.tiles :refer [tiles-per-player]]
             [clojure.string :as string]))
 
-;; TODO handle wildcards (blank tiles) in word
 (defn subwords
   "Returns all words that are valid subwords of word, including word itself"
-  ([word]
+  ([word] (subwords word (.contains word "_")))
+  ([word include-invalid?]
     (if (#{0 1} (count word))
       [word]
-      (filter #(.contains word %) valid-words))))
+      (->>
+        (for [start-index (range (count word))
+              end-index (range (inc start-index) (inc (count word)))]
+          (subs word start-index end-index))
+        (filter
+          (if include-invalid?
+            (constantly true)
+            valid-word?))
+        set))))
 
 (defn containing-words
   "Returns all valid subwords of word that are larger than subword"
