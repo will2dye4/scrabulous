@@ -17,7 +17,7 @@
                       (into []))
           moves (mapv (fn [[_ player]] (mapv :total (:moves player))) (:players game))]
       {:board new-board
-       :moves moves})))
+       :scores moves})))
 
 (defn save-game
   "Saves game to filepath"
@@ -38,7 +38,7 @@
                           "*" "_"
                           "" nil
                           %)))
-          players (map #(new-player [] (reduce + %) (scores->moves %)) (:moves json))]
+          players (map #(new-player [] (reduce + %) (scores->moves %)) (:scores json))]
       (new-game board players))))
 
 (defn load-game
