@@ -36,17 +36,19 @@
   "Returns the coordinates of all occurrences of the subword
   inside the outer word starting at coordinates and moving in direction"
   ([[column row :as coordinates] direction word subword]
-    (loop [word word offset 0 locations []]
-      (let [index (.indexOf word subword)
-            location (when (not= -1 index)
-                       (if (= direction :across)
-                         [(+ column index offset) row]
-                         [column (+ row index offset)]))
-            locations (if location (conj locations location) locations)]
-        (if (= -1 index)
-          locations
-          (let [skip (+ index (count subword))]
-            (recur (subs word skip) (+ offset skip) locations)))))))
+    (if (empty? word)
+      []
+      (loop [word word offset 0 locations []]
+        (let [index (.indexOf word subword)
+              location (when (not= -1 index)
+                         (if (= direction :across)
+                           [(+ column index offset) row]
+                           [column (+ row index offset)]))
+              locations (if location (conj locations location) locations)]
+          (if (= -1 index)
+            locations
+            (let [skip (+ index (count subword))]
+              (recur (subs word skip) (+ offset skip) locations))))))))
 
 (defn candidates
   "Returns a map of subwords and all locations where the subword
@@ -94,22 +96,11 @@
   locations where a word passes through the adjacent coordinates
   in the opposite direction"
   ([game coordinates direction]
-    (let [cross-candidates (candidates-through game coordinates direction false)
-          board (:board game)
-          dim (get-dim board)]
-      (loop [candidates cross-candidates all-candidates cross-candidates]
-        (if (empty? candidates)
-          all-candidates
-          (let [[col row :as candidate] (:coordinates (first candidates))
-                opposite-direction (get-opposite direction)
-                [start-col start-row :as start-coords] (word-start board candidate opposite-direction)
-                adjacent? (and
-                            ((neighbors coordinates dim) candidate)
-                            (if (= direction :across) (= col start-col) (= row start-row)))
-                all-candidates (if adjacent?
-                                 (into all-candidates (candidates-through game candidate opposite-direction false))
-                                 all-candidates)]
-            (recur (rest candidates) all-candidates)))))))
+    (apply concat
+      (candidates-through game coordinates direction true)
+      (->> #{(previous-space coordinates direction) (next-space coordinates direction (get-dim (:board game)))}
+        (keep identity)
+        (map #(candidates-through game % (get-opposite direction) false))))))
 
 (defn matching-moves
   "Returns a vector of possible moves (including player) given
