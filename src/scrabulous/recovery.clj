@@ -157,11 +157,14 @@
   "Returns a set of squares between start-coords and end-coords
   (inclusive) that have words crossing through them in the
   opposite of direction"
-  ([game start-coords end-coords direction]
-    (let [dim (get-dim (:board game))]
+  ([finished-game test-game start-coords end-coords direction]
+    (let [dim (get-dim (:board finished-game))]
       (loop [coords start-coords candidates #{}]
-        (let [cross-word (get-word game coords (get-opposite direction) false)
-              candidates (if (#{0 1} (count cross-word)) candidates (conj candidates coords))]
+        (let [full-cross-word (get-word finished-game coords (get-opposite direction) false)
+              current-cross-word (get-word test-game coords (get-opposite direction) false)
+              candidates (if (or (#{0 1} (count full-cross-word)) (> (count current-cross-word) 1))
+                           candidates
+                           (conj candidates coords))]
           (if (= coords end-coords)
             candidates
             (recur (next-space coords direction dim) candidates)))))))
@@ -183,7 +186,7 @@
                          updated-scores (update scores player (comp vec rest))
                          end-coords (word-end (:board updated-game) coordinates direction)
                          cross-candidates (-> cross-candidates
-                                            (into (cross-word-candidates finished-game coordinates end-coords direction))
+                                            (into (cross-word-candidates finished-game updated-game coordinates end-coords direction))
                                             (disj coords))
                          full-word (get-word finished-game coordinates direction false)
                          super-candidates (if (.equalsIgnoreCase word full-word) super-candidates (conj super-candidates coordinates))]
@@ -205,7 +208,7 @@
           (let [updated-game (update-game test-game move)
                 updated-scores (update scores player (comp vec rest))
                 end-coords (word-end (:board updated-game) coordinates direction)
-                cross-candidates (cross-word-candidates game coordinates end-coords direction)
+                cross-candidates (cross-word-candidates game updated-game coordinates end-coords direction)
                 full-word (get-word game coordinates direction false)
                 super-candidates (set (when-not (.equalsIgnoreCase word full-word) [coordinates]))]
             (log/debug "Recovered move" move)
