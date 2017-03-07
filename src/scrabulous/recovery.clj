@@ -1,9 +1,10 @@
 (ns scrabulous.recovery
   (:require [scrabulous.board :refer :all]
-            [scrabulous.game :refer [new-game new-player remove-letters valid-words valid-word?]]
+            [scrabulous.game :refer [new-game new-player next-player remove-letters valid-words valid-word?]]
             [scrabulous.score :refer [play-score]]
             [scrabulous.tiles :refer [tiles-per-player]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [clojure.tools.logging :as log]))
 
 (defn subwords
   "Returns all words that are valid subwords of word, including word itself"
@@ -121,13 +122,36 @@
                                               (assoc :scores score)) players))]
           (recur (rest candidates) moves))))))
 
+;; TODO handle zero scores (pass/exchange)
+(defn matching-moves-alternating
+  "Returns a vector of possible moves for the currently active player
+  given a game in progress, the remaining (unmatched) scores from a
+  finished game, and a set of candidate words"
+  ([game scores candidates]
+    (loop [candidates candidates moves []]
+      (if (empty? candidates)
+        moves
+        (let [{:keys [word direction coordinates] :as candidate} (first candidates)
+              board-tiles (get-tiles game coordinates direction (count word))
+              played-tiles (remove-letters board-tiles word)
+              used-all? (= tiles-per-player (count played-tiles))
+              score (play-score game coordinates direction word used-all?)
+              moves (if (= (first (scores (:active game))) (:total score))
+                      (conj moves
+                        (-> candidate
+                          (assoc :player (:active game))
+                          (assoc :scores score)))
+                      moves)]
+          (recur (rest candidates) moves))))))
+
 (defn update-game
   "Returns updated game state after recovering a move"
   ([game {:keys [word direction coordinates player scores] :as move}]
     (-> game
       (assoc :board (place-word (:board game) coordinates direction word))
       (update-in [:players player :score] + (:total scores))
-      (update-in [:players player :moves] conj scores))))
+      (update-in [:players player :moves] conj scores)
+      (assoc :active (next-player game)))))
 
 (defn cross-word-candidates
   "Returns a set of squares between start-coords and end-coords
@@ -147,12 +171,13 @@
   all scores have been accounted for"
   ([finished-game test-game scores cross-candidates super-candidates]
     (if (every? empty? (vals scores))
-      test-game
+      (log/spyf "---- Finished with game ----" test-game)
       (->> cross-candidates
         (map (fn [coords]
                (let [direction (if (#{0 1} (count (get-word test-game coords :across false))) :across :down)
                      candidates (touching-candidates finished-game coords direction)
-                     possible-moves (matching-moves test-game scores candidates)]
+                     ;; possible-moves (matching-moves test-game scores candidates)
+                     possible-moves (matching-moves-alternating test-game scores candidates)]
                  (for [{:keys [word direction coordinates player] :as move} possible-moves]
                    (let [updated-game (update-game test-game move)
                          updated-scores (update scores player (comp vec rest))
@@ -162,7 +187,7 @@
                                             (disj coords))
                          full-word (get-word finished-game coordinates direction false)
                          super-candidates (if (.equalsIgnoreCase word full-word) super-candidates (conj super-candidates coordinates))]
-                     (println "Recovered" move)
+                     (log/debug "Recovered move" move "from candidate" coords)
                      (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates))))))))))
 
 (defn recover-moves
@@ -173,8 +198,9 @@
           dim (get-dim (:board game))
           center (vec (repeat 2 (inc (quot dim 2))))
           test-game (new-game (create-board dim) [] (:multipliers game) (repeatedly (count scores) new-player))
-          possible-moves (matching-moves test-game scores (candidates-through game center))]
-      (flatten
+          ;; possible-moves (matching-moves test-game scores (candidates-through game center))
+          possible-moves (matching-moves-alternating test-game scores (candidates-through game center))]
+      (distinct (flatten
         (for [{:keys [word direction coordinates player] :as move} possible-moves]
           (let [updated-game (update-game test-game move)
                 updated-scores (update scores player (comp vec rest))
@@ -182,5 +208,5 @@
                 cross-candidates (cross-word-candidates game coordinates end-coords direction)
                 full-word (get-word game coordinates direction false)
                 super-candidates (set (when-not (.equalsIgnoreCase word full-word) [coordinates]))]
-            (println "Recovered" move)
-            (recover-remaining-moves game updated-game updated-scores cross-candidates super-candidates)))))))
+            (log/debug "Recovered move" move)
+            (recover-remaining-moves game updated-game updated-scores cross-candidates super-candidates))))))))
