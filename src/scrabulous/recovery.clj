@@ -1,6 +1,6 @@
 (ns scrabulous.recovery
   (:require [scrabulous.board :refer :all]
-            [scrabulous.game :refer [new-game new-player next-player remove-letters valid-words valid-word?]]
+            [scrabulous.game :refer [new-game new-player remove-letters valid-words valid-word?]]
             [scrabulous.score :refer [play-score]]
             [scrabulous.tiles :refer [tiles-per-player]]
             [clojure.string :as string]
@@ -103,6 +103,17 @@
         (keep identity)
         (map #(candidates-through game % (get-opposite direction) false))))))
 
+;; TODO check all containing words of the word, plus the word in the opposite direction on either end of the word
+;; ex. - AMPLE was played horizontally
+;;     - possible containing words: EXAMPLE, EXAMPLES
+;;     - possible opposite-direction words: AXE, ASK (but AXE would create a non-word XAMPLE horizontally)
+;;  A     A
+;; EXAMPLES
+;;  E     K
+(defn containing-candidates
+  "TODO"
+  ([]))
+
 (defn matching-moves
   "Returns a vector of possible moves (including player) given
   a game in progress, the remaining (unmatched) scores from a
@@ -144,6 +155,13 @@
                       moves)]
           (recur (rest candidates) moves))))))
 
+(defn next-player
+  "Returns the number of the player to play next"
+  ([active-player num-players]
+    (if (= active-player num-players)
+      1
+      (inc active-player))))
+
 (defn update-game
   "Returns updated game state after recovering a move"
   ([game {:keys [word direction coordinates player scores] :as move}]
@@ -151,7 +169,7 @@
       (assoc :board (place-word (:board game) coordinates direction word))
       (update-in [:players player :score] + (:total scores))
       (update-in [:players player :moves] conj scores)
-      (assoc :active (next-player game)))))
+      (assoc :active (next-player player (count (:players game)))))))
 
 (defn cross-word-candidates
   "Returns a set of squares between start-coords and end-coords
@@ -175,23 +193,40 @@
   ([finished-game test-game scores cross-candidates super-candidates]
     (if (every? empty? (vals scores))
       (log/spyf "---- Finished with game ----" test-game)
-      (->> cross-candidates
-        (map (fn [coords]
-               (let [direction (if (#{0 1} (count (get-word test-game coords :across false))) :across :down)
-                     candidates (touching-candidates finished-game coords direction)
-                     ;; possible-moves (matching-moves test-game scores candidates)
-                     possible-moves (matching-moves-alternating test-game scores candidates)]
-                 (for [{:keys [word direction coordinates player] :as move} possible-moves]
-                   (let [updated-game (update-game test-game move)
-                         updated-scores (update scores player (comp vec rest))
-                         end-coords (word-end (:board updated-game) coordinates direction)
-                         cross-candidates (-> cross-candidates
-                                            (into (cross-word-candidates finished-game updated-game coordinates end-coords direction))
-                                            (disj coords))
-                         full-word (get-word finished-game coordinates direction false)
-                         super-candidates (if (.equalsIgnoreCase word full-word) super-candidates (conj super-candidates coordinates))]
-                     (log/debug "Recovered move" move "from candidate" coords)
-                     (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates))))))))))
+      (concat
+        (for [coords cross-candidates]
+          (let [direction (if (#{0 1} (count (get-word test-game coords :across false))) :across :down)
+                candidates (touching-candidates finished-game coords direction)
+                ;; possible-moves (matching-moves test-game scores candidates)
+                possible-moves (matching-moves-alternating test-game scores candidates)]
+            (for [{:keys [word direction coordinates player] :as move} possible-moves]
+              (let [updated-game (update-game test-game move)
+                    updated-scores (update scores player (comp vec rest))
+                    end-coords (word-end (:board updated-game) coordinates direction)
+                    cross-candidates (-> cross-candidates
+                                       (into (cross-word-candidates finished-game updated-game coordinates end-coords direction))
+                                       (disj coords))
+                    full-word (get-word finished-game coordinates direction false)
+                    super-candidates (if (.equalsIgnoreCase word full-word) super-candidates (conj super-candidates coordinates))]
+                (log/debug "Recovered move" move "from cross-word candidate" coords)
+                (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates)))))
+        #_(for [coords super-candidates
+              direction [:across :down]
+              :when (not= (get-word finished-game coords direction false) (get-word test-game coords direction false))]
+          (let [candidates (containing-candidates finished-game coords direction)
+                possible-moves (matching-moves-alternating test-game scores candidates)]
+            (for [{:keys [word direction coordinates player] :as move} possible-moves]
+              (let [updated-game (update-game test-game move)
+                    updated-scores (update scores player (comp vec rest))
+                    end-coords (word-end (:board updated-game) coordinates direction)
+                    cross-candidates (into cross-candidates (cross-word-candidates finished-game updated-game coordinates end-coords direction))
+                    full-word (get-word finished-game coordinates direction false)
+                    super-candidates (-> (if (.equalsIgnoreCase word full-word)
+                                           super-candidates
+                                           (conj super-candidates coordinates))
+                                       (dissoc coords))]
+                (log/debug "Recovered move" move "from containing-word candidate" coords)
+                (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates)))))))))
 
 (defn recover-moves
   "Returns a vector of all possible sequences of moves that couuld have been played
@@ -201,8 +236,7 @@
           dim (get-dim (:board game))
           center (vec (repeat 2 (inc (quot dim 2))))
           test-game (new-game (create-board dim) [] (:multipliers game) (repeatedly (count scores) new-player))
-          ;; possible-moves (matching-moves test-game scores (candidates-through game center))
-          possible-moves (matching-moves-alternating test-game scores (candidates-through game center))]
+          possible-moves (matching-moves test-game scores (candidates-through game center))]
       (distinct (flatten
         (for [{:keys [word direction coordinates player] :as move} possible-moves]
           (let [updated-game (update-game test-game move)
