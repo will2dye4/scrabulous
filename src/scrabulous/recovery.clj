@@ -22,6 +22,7 @@
             valid-word?))
         set))))
 
+;; TODO handle blank tiles
 (defn containing-words
   "Returns all valid subwords of word that are larger than subword"
   ([word subword]
@@ -51,13 +52,36 @@
             (let [skip (+ index (count subword))]
               (recur (subs word skip) (+ offset skip) locations))))))))
 
+(defn containing-word-location
+  "Returns the coordinates of the occurrence of word
+  in the word starting at coordinates and moving in direction"
+  ([game coordinates direction word]
+    (let [[start-col start-row] (word-start (:board game) coordinates direction)
+          full-word (string/lower-case (get-word game coordinates direction false))
+          index (.indexOf full-word word)]
+      (when (not= -1 index)
+        (if (= direction :across)
+          [(+ start-col index) start-row]
+          [start-col (+ start-row index)])))))
+
 (defn candidates
-  "Returns a map of subwords and all locations where the subword
+  "Returns a sequence of maps describing all locations where a subword
   occurs in the outer word starting at coordinates and moving in direction"
   ([coordinates direction word]
     (for [subword (subwords word)
           location (subword-locations coordinates direction word subword)]
       {:word subword :direction direction :coordinates location})))
+
+(defn containing-word-candidates
+  "Returns a sequence of maps describing all locations where a containing word
+  occurs in the word starting at coordinates and moving in direction"
+  ([game coordinates direction word subword]
+   (->>
+     (for [containing-word (containing-words word subword)]
+       (let [location (containing-word-location game coordinates direction containing-word)]
+         (when (not (nil? location))
+           {:word containing-word :direction direction :coordinates location})))
+     (keep identity))))
 
 (defn passes-through?
   "Returns true IFF word starting at start-coords and
@@ -103,7 +127,6 @@
         (keep identity)
         (map #(candidates-through game % (get-opposite direction) false))))))
 
-;; TODO check all containing words of the word, plus the word in the opposite direction on either end of the word
 ;; ex. - AMPLE was played horizontally
 ;;     - possible containing words: EXAMPLE, EXAMPLES
 ;;     - possible opposite-direction words: AXE, ASK (but AXE would create a non-word XAMPLE horizontally)
@@ -111,8 +134,20 @@
 ;; EXAMPLES
 ;;  E     K
 (defn containing-candidates
-  "TODO"
-  ([]))
+  "Returns a set of candidate locations where a containing word
+  passes through coordinates in the specified direction"
+  ([finished-game test-game coordinates direction]
+    (let [current-word (string/lower-case (get-word test-game coordinates direction false))
+          full-word (string/lower-case (get-word finished-game coordinates direction false))]
+      (apply concat
+        (containing-word-candidates finished-game coordinates direction full-word current-word)
+        (let [start-coords (word-start (:board test-game) coordinates direction)
+              end-coords (word-end (:board test-game) coordinates direction)
+              previous-coords (previous-space start-coords direction)
+              next-coords (next-space end-coords direction (get-dim (:board finished-game)))]
+          (->> #{previous-coords next-coords}
+            (keep identity)
+            (map #(candidates-through finished-game % (get-opposite direction) false))))))))
 
 (defn matching-moves
   "Returns a vector of possible moves (including player) given
@@ -210,10 +245,10 @@
                     super-candidates (if (.equalsIgnoreCase word full-word) super-candidates (conj super-candidates coordinates))]
                 (log/debug "Recovered move" move "from cross-word candidate" coords)
                 (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates)))))
-        #_(for [coords super-candidates
+        (for [coords super-candidates
               direction [:across :down]
               :when (not= (get-word finished-game coords direction false) (get-word test-game coords direction false))]
-          (let [candidates (containing-candidates finished-game coords direction)
+          (let [candidates (log/spyf "candidates: %s" (set (containing-candidates finished-game test-game coords direction)))
                 possible-moves (matching-moves-alternating test-game scores candidates)]
             (for [{:keys [word direction coordinates player] :as move} possible-moves]
               (let [updated-game (update-game test-game move)
@@ -221,10 +256,10 @@
                     end-coords (word-end (:board updated-game) coordinates direction)
                     cross-candidates (into cross-candidates (cross-word-candidates finished-game updated-game coordinates end-coords direction))
                     full-word (get-word finished-game coordinates direction false)
-                    super-candidates (-> (if (.equalsIgnoreCase word full-word)
-                                           super-candidates
-                                           (conj super-candidates coordinates))
-                                       (dissoc coords))]
+                    super-candidates (disj super-candidates coords)
+                    super-candidates (if (.equalsIgnoreCase word full-word)
+                                       super-candidates
+                                       (conj super-candidates coordinates))]
                 (log/debug "Recovered move" move "from containing-word candidate" coords)
                 (recover-remaining-moves finished-game updated-game updated-scores cross-candidates super-candidates)))))))))
 
