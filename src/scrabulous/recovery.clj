@@ -161,7 +161,7 @@
               board-tiles (get-tiles game coordinates direction (count word))
               played-tiles (remove-letters board-tiles word)
               used-all? (= tiles-per-player (count played-tiles))
-              score (play-score game coordinates direction word used-all?)
+              score (play-score game coordinates direction (string/upper-case word) used-all?)
               players (filter (fn [[_ ss]] (= (first ss) (:total score))) scores)
               moves (apply conj moves (map #(-> candidate
                                               (assoc :player (first %))
@@ -181,7 +181,7 @@
               board-tiles (get-tiles game coordinates direction (count word))
               played-tiles (remove-letters board-tiles word)
               used-all? (= tiles-per-player (count played-tiles))
-              score (play-score game coordinates direction word used-all?)
+              score (play-score game coordinates direction (string/upper-case word) used-all?)
               moves (if (= (first (scores (:active game))) (:total score))
                       (conj moves
                         (-> candidate
@@ -227,7 +227,9 @@
   all scores have been accounted for"
   ([finished-game test-game scores cross-candidates super-candidates]
     (if (every? empty? (vals scores))
-      (log/spyf "---- Finished with game ----" test-game)
+      (if (= (:board finished-game) (:board test-game))
+        (log/spyf "---- Finished with game ----" test-game)
+        [])
       (concat
         (for [coords cross-candidates]
           (let [direction (if (#{0 1} (count (get-word test-game coords :across false))) :across :down)
