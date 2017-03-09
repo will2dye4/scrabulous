@@ -168,7 +168,6 @@
                                               (assoc :scores score)) players))]
           (recur (rest candidates) moves))))))
 
-;; TODO handle zero scores (pass/exchange)
 (defn matching-moves-alternating
   "Returns a vector of possible moves for the currently active player
   given a game in progress, the remaining (unmatched) scores from a
@@ -190,21 +189,41 @@
                       moves)]
           (recur (rest candidates) moves))))))
 
+(defn remove-first-score
+  "Returns an updated score map with the first score for player removed"
+  ([scores player]
+    (update scores player (comp vec rest))))
+
 (defn next-player
   "Returns the number of the player to play next"
-  ([active-player num-players]
-    (if (= active-player num-players)
-      1
-      (inc active-player))))
+  ([active-player scores]
+    (if (every? empty? (vals scores))
+      active-player
+      (let [num-players (count scores)
+            next-player (if (= active-player num-players) 1 (inc active-player))]
+        (if-not (zero? (or (first (scores next-player)) 0))
+          next-player
+          (recur next-player (remove-first-score scores next-player)))))))
 
 (defn update-game
   "Returns updated game state after recovering a move"
-  ([game {:keys [word direction coordinates player scores] :as move}]
+  ([game {:keys [word direction coordinates player scores] :as move} player-scores]
     (-> game
       (assoc :board (place-word (:board game) coordinates direction word))
       (update-in [:players player :score] + (:total scores))
       (update-in [:players player :moves] conj scores)
-      (assoc :active (next-player player (count (:players game)))))))
+      (assoc :active (next-player player (remove-first-score player-scores player))))))
+
+(defn update-scores
+  "Returns an updated score map, eliminating zero scores as necessary"
+  ([scores active-player]
+    (if (every? empty? (vals scores))
+      scores
+      (let [scores (remove-first-score scores active-player)
+            next-player (if (= active-player (count scores)) 1 (inc active-player))]
+        (if-not (zero? (or (first (scores next-player)) 0))
+          scores
+          (recur scores next-player))))))
 
 (defn cross-word-candidates
   "Returns a set of squares between start-coords and end-coords
@@ -237,8 +256,8 @@
                 ;; possible-moves (matching-moves test-game scores candidates)
                 possible-moves (matching-moves-alternating test-game scores candidates)]
             (for [{:keys [word direction coordinates player] :as move} possible-moves]
-              (let [updated-game (update-game test-game move)
-                    updated-scores (update scores player (comp vec rest))
+              (let [updated-game (update-game test-game move scores)
+                    updated-scores (update-scores scores player)
                     end-coords (word-end (:board updated-game) coordinates direction)
                     cross-candidates (-> cross-candidates
                                        (into (cross-word-candidates finished-game updated-game coordinates end-coords direction))
@@ -253,8 +272,8 @@
           (let [candidates (log/spyf "candidates: %s" (set (containing-candidates finished-game test-game coords direction)))
                 possible-moves (matching-moves-alternating test-game scores candidates)]
             (for [{:keys [word direction coordinates player] :as move} possible-moves]
-              (let [updated-game (update-game test-game move)
-                    updated-scores (update scores player (comp vec rest))
+              (let [updated-game (update-game test-game move scores)
+                    updated-scores (update-scores scores player)
                     end-coords (word-end (:board updated-game) coordinates direction)
                     cross-candidates (into cross-candidates (cross-word-candidates finished-game updated-game coordinates end-coords direction))
                     full-word (get-word finished-game coordinates direction false)
@@ -276,8 +295,8 @@
           possible-moves (matching-moves test-game scores (candidates-through game center))]
       (distinct (flatten
         (for [{:keys [word direction coordinates player] :as move} possible-moves]
-          (let [updated-game (update-game test-game move)
-                updated-scores (update scores player (comp vec rest))
+          (let [updated-game (update-game test-game move scores)
+                updated-scores (update-scores scores player)
                 end-coords (word-end (:board updated-game) coordinates direction)
                 cross-candidates (cross-word-candidates game updated-game coordinates end-coords direction)
                 full-word (get-word game coordinates direction false)
