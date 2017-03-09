@@ -1,6 +1,6 @@
 (ns scrabulous.game
   (:require [scrabulous.board :refer :all]
-            [scrabulous.score :refer [multipliers play-score]]
+            [scrabulous.score :refer [multipliers new-move play-score]]
             [scrabulous.tiles :refer :all]
             [clojure.java.io :as io]
             [clojure.string :as string]))
@@ -177,7 +177,7 @@
   "Updates the game state to set the active player to the next player"
   ([game]
     (swap! game #(-> %
-      (update-in [:players (:active %) :moves] conj {:total 0 :words [] :type :pass})
+      (update-in [:players (:active %) :moves] conj (assoc (new-move) :type :pass))
       (assoc :active (next-player %))))
     (print-state @game)))
 
@@ -196,7 +196,7 @@
           (swap! game #(-> %
             (assoc :tile-bag tile-bag)
             (assoc-in [:players active-player :tile-rack] player-tiles)
-            (update-in [:players (:active %) :moves] conj {:total 0 :words [] :type :exchange})
+            (update-in [:players (:active %) :moves] conj (assoc (new-move) :type :exchange))
             (assoc :active (next-player %)))))))
     (print-state @game)))
 

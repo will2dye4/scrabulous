@@ -61,6 +61,7 @@
 
 (defn new-move
   "Returns a new move map from the pre-computed components of a move"
+  ([] (new-move []))
   ([scores] (new-move scores 0))
   ([scores bonus]
    {:total (+ bonus (reduce + (map second scores))) :words scores}))
