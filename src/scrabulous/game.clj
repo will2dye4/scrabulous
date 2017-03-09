@@ -176,7 +176,9 @@
 (defn pass!
   "Updates the game state to set the active player to the next player"
   ([game]
-    (swap! game assoc :active (next-player @game))
+    (swap! game #(-> %
+      (update-in [:players (:active %) :moves] conj {:total 0 :words [] :type :pass})
+      (assoc :active (next-player %))))
     (print-state @game)))
 
 (defn exchange!
@@ -194,7 +196,8 @@
           (swap! game #(-> %
             (assoc :tile-bag tile-bag)
             (assoc-in [:players active-player :tile-rack] player-tiles)
-            (assoc :active (next-player @game)))))))
+            (update-in [:players (:active %) :moves] conj {:total 0 :words [] :type :exchange})
+            (assoc :active (next-player %)))))))
     (print-state @game)))
 
 (defn print-state
