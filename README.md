@@ -188,7 +188,7 @@ nil
 ```
 
 As you can see, `play` prints the updated game state after making the requested move.
-If you are playing one or more blank tiles as part of your move, use underscore in the
+If you are playing one or more blank tiles as part of your move, use underscores in the
 word to indicate where the blank tile(s) should go, and pass a vector of one-letter strings
 to `play` indicating which letter(s) the blank tile(s) are standing in for.
 
