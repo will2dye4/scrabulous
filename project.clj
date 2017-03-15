@@ -1,6 +1,6 @@
-(defproject scrabulous "0.1.0-SNAPSHOT"
+(defproject scrabulous "1.0.0"
   :description "Scrabble in Clojure"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/will2dye4/scrabulous"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]

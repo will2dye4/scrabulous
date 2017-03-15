@@ -20,7 +20,7 @@
 
 (defn exchange [tiles] (exchange! game tiles))
 
-(defn test-recovery [] (recover-moves (load-game "/tmp/partial_game.json")))
+(defn test-recovery [] (recover-moves (load-game "resources/sample_inputs/sample_input30.json")))
 
 (defn -main
   "Prints the game state to the console"
